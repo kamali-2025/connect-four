@@ -114,3 +114,46 @@ body {
   font-weight: bold;
 }
 
+#controls {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.secondary-btn {
+  background-color: #211f26;
+  color: #ffffff;
+}
+
+.secondary-btn:hover {
+  background-color: #34313d;
+}
+
+#scoreboard {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #211f26;
+  border: 4px solid #2c1e1c;
+  padding: 8px 14px;
+  margin-bottom: 12px;
+  font-weight: bold;
+  font-size: 15px;
+}
+
+.yellow-score { color: #ffca28; }
+.pink-score { color: #e91e63; }
+
+#timer-box {
+  background-color: #161822;
+  padding: 4px 10px;
+  border: 2px solid #4a3531;
+  color: #ffffff;
+}
+
+#timer-box.urgent {
+  color: #ff5252;
+  border-color: #ff5252;
+}
+
