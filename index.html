@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>Retro Connect Four - Purya Kamali</title>
   <link rel="stylesheet" href="style.css">
+  <script src="https://unpkg.com"></script>
 </head>
 <body>
   <div id="game-container">
@@ -12,6 +13,16 @@
       <button id="mode-btn" class="retro-btn">Mode: 1 Player (vs AI)</button>
       <button id="reset-score-btn" class="retro-btn secondary-btn">Reset Scores</button>
     </div>
+
+    <div id="online-panel">
+      <button id="host-btn" class="retro-btn">Create Online Room</button>
+      <div id="join-box">
+        <input type="text" id="room-input" placeholder="CODE" maxlength="4">
+        <button id="join-btn" class="retro-btn secondary-btn">Join</button>
+      </div>
+      <p id="room-status"></p>
+    </div>
+
     <div id="scoreboard">
       <div class="score-box yellow-score">YELLOW: <span id="yellow-wins">0</span></div>
       <div id="timer-box">TIME: <span id="timer">15</span>s</div>

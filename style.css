@@ -158,4 +158,39 @@ body {
   color: #ff5252;
   border-color: #ff5252;
 }
+#online-panel {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+#join-box {
+  display: flex;
+  gap: 6px;
+}
+
+#room-input {
+  width: 72px;
+  padding: 6px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 15px;
+  font-weight: bold;
+  text-align: center;
+  text-transform: uppercase;
+  background-color: #211f26;
+  color: #ffca28;
+  border: 3px solid #4a3531;
+}
+
+#room-status {
+  width: 100%;
+  margin: 4px 0 0 0;
+  font-size: 13px;
+  color: #4dd0e1;
+  font-weight: bold;
+}
+
 

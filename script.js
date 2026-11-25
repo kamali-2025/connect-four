@@ -9,6 +9,11 @@ const pinkLabelEl = document.getElementById("pink-label");
 const timerEl = document.getElementById("timer");
 const timerBox = document.getElementById("timer-box");
 
+const hostBtn = document.getElementById("host-btn");
+const joinBtn = document.getElementById("join-btn");
+const roomInput = document.getElementById("room-input");
+const roomStatus = document.getElementById("room-status");
+
 const ROWS = 6;
 const COLS = 7;
 const TURN_TIME = 15;
@@ -22,6 +27,12 @@ let pinkScore = 0;
 let timeLeft = TURN_TIME;
 let timerInterval = null;
 let board = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+
+// --- Online Multiplayer State (PeerJS) ---
+let peer = null;
+let conn = null;
+let isOnline = false;
+let myOnlineColor = null;
 
 // --- 8-Bit Retro Sound Generator ---
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -55,6 +66,91 @@ function playTimeoutSound() {
   playTone(140, 0.2, "sawtooth", 0.12);
 }
 
+// --- Online PeerJS Setup ---
+function generateRoomCode() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  for (let i = 0; i < 4; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return code;
+}
+
+function setupConnection(connection) {
+  conn = connection;
+  isOnline = true;
+  vsAI = false;
+  modeBtn.textContent = "Mode: Online 2P";
+  pinkLabelEl.textContent = "PINK";
+  yellowScore = 0;
+  pinkScore = 0;
+  yellowWinsEl.textContent = 0;
+  pinkWinsEl.textContent = 0;
+  resetGame();
+
+  conn.on("data", (data) => {
+    if (data.type === "move") {
+      handleMove(data.col, true);
+    } else if (data.type === "timeout") {
+      switchTurn(true, true);
+    } else if (data.type === "reset") {
+      resetGame(true);
+    }
+  });
+
+  conn.on("close", () => {
+    roomStatus.textContent = "Friend disconnected.";
+    isOnline = false;
+    conn = null;
+  });
+}
+
+hostBtn.addEventListener("click", () => {
+  if (peer) peer.destroy();
+  const code = generateRoomCode();
+  roomStatus.textContent = "Creating room...";
+  peer = new Peer("purya-c4-" + code);
+
+  peer.on("open", () => {
+    myOnlineColor = "yellow";
+    roomStatus.textContent = `Room Code: ${code} (You are YELLOW - waiting for friend...)`;
+  });
+
+  peer.on("connection", (connection) => {
+    connection.on("open", () => {
+      roomStatus.textContent = `Connected! Room ${code} (You are YELLOW)`;
+      setupConnection(connection);
+    });
+  });
+
+  peer.on("error", () => {
+    roomStatus.textContent = "Connection error. Try creating a new room.";
+  });
+});
+
+joinBtn.addEventListener("click", () => {
+  const code = roomInput.value.trim().toUpperCase();
+  if (code.length !== 4) {
+    roomStatus.textContent = "Enter the 4-letter Room Code first!";
+    return;
+  }
+  if (peer) peer.destroy();
+  roomStatus.textContent = `Joining room ${code}...`;
+  peer = new Peer();
+
+  peer.on("open", () => {
+    myOnlineColor = "pink";
+    const connection = peer.connect("purya-c4-" + code);
+    connection.on("open", () => {
+      roomStatus.textContent = `Connected to ${code}! (You are PINK)`;
+      setupConnection(connection);
+    });
+    connection.on("error", () => {
+      roomStatus.textContent = "Could not find room. Check the code!";
+    });
+  });
+});
+
 // --- Turn Timer ---
 function startTimer() {
   clearInterval(timerInterval);
@@ -75,13 +171,26 @@ function startTimer() {
 
     if (timeLeft <= 0) {
       clearInterval(timerInterval);
-      playTimeoutSound();
-      switchTurn(true);
+      if (!isOnline || currentPlayer === myOnlineColor) {
+        playTimeoutSound();
+        if (isOnline && conn) conn.send({ type: "timeout" });
+        switchTurn(true, false);
+      }
     }
   }, 1000);
 }
 
-function switchTurn(timedOut = false) {
+function updateTurnText(prefix = "") {
+  if (isOnline) {
+    statusElement.textContent = currentPlayer === myOnlineColor
+      ? `${prefix}Your Turn (${myOnlineColor.toUpperCase()})`
+      : `${prefix}Waiting for friend...`;
+  } else {
+    statusElement.textContent = `${prefix}${currentPlayer === "yellow" ? "Yellow" : "Pink"}'s Turn`;
+  }
+}
+
+function switchTurn(timedOut = false, fromRemote = false) {
   currentPlayer = currentPlayer === "yellow" ? "pink" : "yellow";
   const prefix = timedOut ? "Time's up! " : "";
 
@@ -95,7 +204,7 @@ function switchTurn(timedOut = false) {
       handleMove(chooseAIMove());
     }, 450);
   } else {
-    statusElement.textContent = `${prefix}${currentPlayer === "yellow" ? "Yellow" : "Pink"}'s Turn`;
+    updateTurnText(prefix);
     startTimer();
   }
 }
@@ -110,7 +219,9 @@ function createBoard() {
       slot.dataset.row = r;
       slot.dataset.col = c;
       slot.addEventListener("click", () => {
-        if (!aiThinking) handleMove(c);
+        if (aiThinking) return;
+        if (isOnline && currentPlayer !== myOnlineColor) return;
+        handleMove(c, false);
       });
       boardElement.appendChild(slot);
     }
@@ -124,10 +235,14 @@ function getAvailableRow(col) {
   return -1;
 }
 
-function handleMove(col) {
+function handleMove(col, fromRemote = false) {
   if (gameOver) return;
   const r = getAvailableRow(col);
   if (r === -1) return;
+
+  if (isOnline && !fromRemote && conn) {
+    conn.send({ type: "move", col: col });
+  }
 
   clearInterval(timerInterval);
   board[r][col] = currentPlayer;
@@ -164,7 +279,7 @@ function handleMove(col) {
     return;
   }
 
-  switchTurn(false);
+  switchTurn(false, fromRemote);
 }
 
 function chooseAIMove() {
@@ -224,37 +339,13 @@ function highlightWinner(cells) {
   }
 }
 
-function resetGame() {
+function resetGame(fromRemote = false) {
+  if (isOnline && !fromRemote && conn) {
+    conn.send({ type: "reset" });
+  }
   board = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
   currentPlayer = "yellow";
   gameOver = false;
   aiThinking = false;
-  statusElement.textContent = "Yellow's Turn";
+  updateTurnText();
   resetBtn.style.display = "none";
-  createBoard();
-  startTimer();
-}
-
-modeBtn.addEventListener("click", () => {
-  vsAI = !vsAI;
-  modeBtn.textContent = vsAI ? "Mode: 1 Player (vs AI)" : "Mode: 2 Players";
-  pinkLabelEl.textContent = vsAI ? "AI" : "PINK";
-  yellowScore = 0;
-  pinkScore = 0;
-  yellowWinsEl.textContent = 0;
-  pinkWinsEl.textContent = 0;
-  resetGame();
-});
-
-resetScoreBtn.addEventListener("click", () => {
-  yellowScore = 0;
-  pinkScore = 0;
-  yellowWinsEl.textContent = 0;
-  pinkWinsEl.textContent = 0;
-  resetGame();
-});
-
-resetBtn.addEventListener("click", resetGame);
-
-createBoard();
-startTimer();
