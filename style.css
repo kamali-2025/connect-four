@@ -5,11 +5,13 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100vh;
+  min-height: 100vh;
+  padding: 20px 0;
   margin: 0;
   border-bottom: 40px solid #2e8b57;
   box-sizing: border-box;
 }
+
 
 #game-container {
   text-align: center;
